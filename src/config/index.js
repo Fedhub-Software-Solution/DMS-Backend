@@ -2,7 +2,16 @@ require('dotenv').config();
 
 // Prefer DATABASE_URL (e.g. Aiven); otherwise use individual env vars
 // Strip query from URL so pg's parser doesn't override our ssl option (parsed sslmode=require would enforce cert verification)
-const rawUrl = process.env.DATABASE_URL;
+const rawUrl = (process.env.DATABASE_URL || '').trim();
+const invalidHosts = ['base', '']; // placeholders / missing host → DATABASE_URL likely wrong in Cloud Run
+if (rawUrl) {
+  try {
+    const u = new URL(rawUrl.replace(/^postgres:\/\//, 'https://'));
+    if (invalidHosts.includes(u.hostname)) {
+      console.warn('[config] DATABASE_URL has host "' + u.hostname + '". In Cloud Run, set the DATABASE_URL secret to your real Postgres URL (e.g. Aiven host).');
+    }
+  } catch (_) {}
+}
 const dbConfig = rawUrl
   ? {
       connectionString: rawUrl.includes('?') ? rawUrl.replace(/\?.*$/, '') : rawUrl,

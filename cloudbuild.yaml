@@ -1,0 +1,49 @@
+steps:
+  # Build Docker image (region: Singapore = asia-southeast1)
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'asia-southeast1-docker.pkg.dev/pharma-dms-490207/dms-backend/backend:$COMMIT_SHA'
+      - '-t'
+      - 'asia-southeast1-docker.pkg.dev/pharma-dms-490207/dms-backend/backend:latest'
+      - '.'
+
+  # Push to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'asia-southeast1-docker.pkg.dev/pharma-dms-490207/dms-backend/backend:$COMMIT_SHA'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'asia-southeast1-docker.pkg.dev/pharma-dms-490207/dms-backend/backend:latest'
+
+  # Deploy to Cloud Run (Singapore)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'dms-backend'
+      - '--image'
+      - 'asia-southeast1-docker.pkg.dev/pharma-dms-490207/dms-backend/backend:$COMMIT_SHA'
+      - '--region'
+      - 'asia-southeast1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      # Secrets from Secret Manager (created via gcloud secrets create ...)
+      - '--set-secrets'
+      - >-
+        DATABASE_URL=DATABASE_URL:latest,
+        JWT_SECRET=JWT_SECRET:latest,
+        SMTP_HOST=SMTP_HOST:latest,
+        SMTP_PORT=SMTP_PORT:latest,
+        SMTP_USER=SMTP_USER:latest,
+        SMTP_PASSWORD=SMTP_PASSWORD:latest,
+        EMAIL_FROM=EMAIL_FROM:latest,
+        EMAIL_FROM_NAME=EMAIL_FROM_NAME:latest,
+        FILE_STORAGE_PATH=FILE_STORAGE_PATH:latest,
+        DOCUMENT_EDITOR_SERVICE_URL=DOCUMENT_EDITOR_SERVICE_URL:latest

@@ -44,6 +44,9 @@ module.exports = {
   },
   /** Fallback domain when user has no email (e.g. username@this-domain) */
   emailDomain: process.env.EMAIL_DOMAIN || 'fedhubsoftware.com',
-  /** CORS allowed origin (e.g. https://app.yourdomain.com). Empty = allow all (dev). */
-  corsOrigin: process.env.CORS_ORIGIN || '',
+  /** CORS: comma-separated origins (CLIENT_ORIGIN or CORS_ORIGIN). Default includes localhost + pharma-dms. */
+  clientOrigin:
+    process.env.CLIENT_ORIGIN ||
+    process.env.CORS_ORIGIN ||
+    'http://localhost:5173,http://localhost:3000,https://pharma-dms.fedhubsoftware.com',
 };

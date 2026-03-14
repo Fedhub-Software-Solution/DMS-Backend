@@ -1,40 +1,65 @@
 const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
 const proxy = require('express-http-proxy');
 const routes = require('./routes');
 const fileStorage = require('./services/fileStorage');
 const config = require('./config');
+const { pool } = require('./db/pool');
 
 const app = express();
 
-// CORS: CORS_ORIGIN = comma-separated list (e.g. https://pharma-dms.fedhubsoftware.com). Empty = allow all.
-const allowedOrigins =
-  config.corsOrigin && config.corsOrigin.trim()
-    ? config.corsOrigin.split(',').map((o) => o.trim().replace(/\/$/, ''))
-    : null; // null = allow any origin
+// Security headers (per reference app.ts)
+app.use(helmet());
 
-function getCorsOrigin(req) {
-  const origin = req.get('Origin');
-  if (!origin) return allowedOrigins === null ? '*' : null;
-  const normalized = origin.replace(/\/$/, '');
-  if (allowedOrigins === null) return normalized;
-  return allowedOrigins.includes(normalized) ? normalized : null;
+// CORS: same pattern as reference app.ts – CLIENT_ORIGIN / CORS_ORIGIN, comma-separated; allow localhost + pharma-dms hostnames
+const allowedOrigins = (config.clientOrigin || '')
+  .split(',')
+  .map((o) => o.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
+function isLocalhostOrPharmaDms(origin) {
+  if (!origin) return false;
+  try {
+    const url = new URL(origin);
+    const host = url.hostname.toLowerCase();
+    return (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '::1' ||
+      host === 'pharma-dms.fedhubsoftware.com' ||
+      host === 'www.pharma-dms.fedhubsoftware.com'
+    );
+  } catch {
+    return false;
+  }
 }
 
-app.use((req, res, next) => {
-  const allowOrigin = getCorsOrigin(req);
-  const originToSet = allowOrigin || (allowedOrigins === null ? req.get('Origin') || '*' : null);
-  if (originToSet) {
-    res.setHeader('Access-Control-Allow-Origin', originToSet);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Max-Age', '86400');
-  }
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(204);
-  }
-  next();
-});
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Allow non-browser clients or same-origin requests
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      const normalized = origin.trim().replace(/\/$/, '');
+      // Always allow localhost and pharma-dms hostnames for dev/prod
+      if (isLocalhostOrPharmaDms(normalized)) {
+        callback(null, true);
+        return;
+      }
+      // Check against configured allowed origins
+      if (allowedOrigins.length === 0 || allowedOrigins.includes(normalized)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
+    credentials: true,
+  })
+);
+
 // Proxy Syncfusion Word Processor Server (Docker) before body parsers so multipart streams through
 if (config.documentEditorServiceUrl) {
   app.use(
@@ -49,22 +74,48 @@ if (config.documentEditorServiceUrl) {
     })
   );
 }
+
 app.use(express.json({ limit: '100mb' }));
-// Allow larger multipart bodies for template/document uploads (multer uses this)
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+
+// Request logging (per reference app.ts)
+app.use((req, _res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
+});
 
 const templatesDir = fileStorage.getUploadDir('templates');
 const documentsDir = fileStorage.getUploadDir('documents');
 console.log('[App] Upload directories ready:', { templates: templatesDir, documents: documentsDir });
 
+// Root health with DB check (per reference app.ts)
+app.get('/health', async (_req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok', database: 'connected' });
+  } catch (err) {
+    res.status(503).json({
+      status: 'error',
+      database: 'disconnected',
+      error: err.message || 'Database connection failed',
+    });
+  }
+});
+
 app.use('/api', routes);
 
+// Central error handler – ensure CORS headers on error responses
 app.use((err, req, res, _next) => {
   console.error(err);
-  const allowOrigin = getCorsOrigin(req);
-  if (allowOrigin || allowedOrigins === null) {
-    const originToSet = allowOrigin || req.get('Origin') || '*';
-    res.setHeader('Access-Control-Allow-Origin', originToSet);
+  const origin = req.get('Origin');
+  const normalized = origin ? origin.trim().replace(/\/$/, '') : '';
+  const allow =
+    !origin ||
+    isLocalhostOrPharmaDms(normalized) ||
+    allowedOrigins.length === 0 ||
+    allowedOrigins.includes(normalized);
+  if (allow && origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
   res.status(500).json({ error: err.message || 'Internal server error' });

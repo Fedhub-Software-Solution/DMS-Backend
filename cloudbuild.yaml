@@ -1,5 +1,9 @@
 # Use BUILD_ID for image tag (always set for both local submit and repo triggers).
 # COMMIT_SHA is only set when build is triggered from a repo, so it's empty on "gcloud builds submit".
+# Required when the build trigger uses a custom service_account: use Cloud Logging only (no bucket).
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 steps:
   # Build Docker image (region: Singapore = asia-southeast1)
   - name: 'gcr.io/cloud-builders/docker'

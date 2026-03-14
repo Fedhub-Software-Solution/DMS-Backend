@@ -1,10 +1,12 @@
+# Use BUILD_ID for image tag (always set for both local submit and repo triggers).
+# COMMIT_SHA is only set when build is triggered from a repo, so it's empty on "gcloud builds submit".
 steps:
   # Build Docker image (region: Singapore = asia-southeast1)
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '-t'
-      - 'asia-southeast1-docker.pkg.dev/pharma-dms-490207/dms-backend/backend:$COMMIT_SHA'
+      - 'asia-southeast1-docker.pkg.dev/pharma-dms-490207/dms-backend/backend:$BUILD_ID'
       - '-t'
       - 'asia-southeast1-docker.pkg.dev/pharma-dms-490207/dms-backend/backend:latest'
       - '.'
@@ -13,7 +15,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'asia-southeast1-docker.pkg.dev/pharma-dms-490207/dms-backend/backend:$COMMIT_SHA'
+      - 'asia-southeast1-docker.pkg.dev/pharma-dms-490207/dms-backend/backend:$BUILD_ID'
 
   - name: 'gcr.io/cloud-builders/docker'
     args:
@@ -28,7 +30,7 @@ steps:
       - 'deploy'
       - 'dms-backend'
       - '--image'
-      - 'asia-southeast1-docker.pkg.dev/pharma-dms-490207/dms-backend/backend:$COMMIT_SHA'
+      - 'asia-southeast1-docker.pkg.dev/pharma-dms-490207/dms-backend/backend:$BUILD_ID'
       - '--region'
       - 'asia-southeast1'
       - '--platform'

@@ -32,8 +32,12 @@ module.exports = {
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-in-production',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   fileStoragePath: process.env.FILE_STORAGE_PATH || './uploads',
-  /** Syncfusion Word Processor Server (Docker) - DOCX to SFDT. e.g. http://localhost:6002 */
-  documentEditorServiceUrl: process.env.DOCUMENT_EDITOR_SERVICE_URL || '',
+  /** Syncfusion Word Processor Server – base URL only (no trailing slash). Must be http(s)://host. */
+  documentEditorServiceUrl: (() => {
+    const raw = (process.env.DOCUMENT_EDITOR_SERVICE_URL || '').trim().replace(/\/+$/, '');
+    if (!raw || (!raw.startsWith('http://') && !raw.startsWith('https://'))) return '';
+    return raw;
+  })(),
   /** AWS S3 for template file storage (optional). When set, templates are also uploaded to S3. */
   s3: {
     region: process.env.AWS_REGION || 'us-east-1',

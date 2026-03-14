@@ -62,15 +62,20 @@ app.use(
 
 // Proxy Syncfusion Word Processor Server (Docker) before body parsers so multipart streams through
 if (config.documentEditorServiceUrl) {
+  const syncfusionTarget = config.documentEditorServiceUrl;
   app.use(
     '/api/document-editor',
-    proxy(config.documentEditorServiceUrl, {
+    proxy(syncfusionTarget, {
       proxyReqPathResolver: (req) => {
         const base = '/api/documenteditor';
-        const path = req.originalUrl.replace(/^\/api\/document-editor\/?/, '') || '';
+        const path = (req.originalUrl || '').replace(/^\/api\/document-editor\/?/, '').trim() || '';
         return path ? `${base}/${path}` : base;
       },
       parseReqBody: false,
+      proxyErrorHandler: (err, _req, res) => {
+        console.error('[Syncfusion proxy]', err.message || err);
+        res.status(502).json({ error: 'Document editor service unavailable' });
+      },
     })
   );
 }

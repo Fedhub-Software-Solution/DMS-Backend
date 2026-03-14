@@ -7,8 +7,23 @@ const config = require('./config');
 
 const app = express();
 
-// CORS: use CORS_ORIGIN in production (e.g. frontend URL); empty = allow all (dev)
-app.use(cors(config.corsOrigin ? { origin: config.corsOrigin } : {}));
+// CORS: use CORS_ORIGIN in production (exact frontend URL); empty = allow all (dev)
+const allowedOrigins = config.corsOrigin
+  ? config.corsOrigin.split(',').map((o) => o.trim().replace(/\/$/, ''))
+  : [];
+app.use(
+  cors({
+    origin:
+      allowedOrigins.length === 0
+        ? true
+        : (origin, cb) => {
+            const normalized = origin ? origin.replace(/\/$/, '') : '';
+            if (!origin || allowedOrigins.includes(normalized)) return cb(null, true);
+            return cb(null, false);
+          },
+    credentials: true,
+  })
+);
 // Proxy Syncfusion Word Processor Server (Docker) before body parsers so multipart streams through
 if (config.documentEditorServiceUrl) {
   app.use(

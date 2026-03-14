@@ -7,7 +7,8 @@ const config = require('./config');
 
 const app = express();
 
-app.use(cors());
+// CORS: use CORS_ORIGIN in production (e.g. frontend URL); empty = allow all (dev)
+app.use(cors(config.corsOrigin ? { origin: config.corsOrigin } : {}));
 // Proxy Syncfusion Word Processor Server (Docker) before body parsers so multipart streams through
 if (config.documentEditorServiceUrl) {
   app.use(

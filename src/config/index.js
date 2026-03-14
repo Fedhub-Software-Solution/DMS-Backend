@@ -44,4 +44,6 @@ module.exports = {
   },
   /** Fallback domain when user has no email (e.g. username@this-domain) */
   emailDomain: process.env.EMAIL_DOMAIN || 'fedhubsoftware.com',
+  /** CORS allowed origin (e.g. https://app.yourdomain.com). Empty = allow all (dev). */
+  corsOrigin: process.env.CORS_ORIGIN || '',
 };

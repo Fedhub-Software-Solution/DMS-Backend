@@ -1,0 +1,22 @@
+# Dependencies (installed in image)
+node_modules
+
+# Env and secrets (inject at runtime via Cloud Run / docker -e)
+.env
+.env.*
+!.env.example
+
+# Git and IDE
+.git
+.gitignore
+.cursor
+.vscode
+*.md
+!README.md
+
+# Build and tooling
+*.log
+npm-debug.log*
+
+# Optional: exclude local uploads (use volume or cloud storage in prod)
+uploads

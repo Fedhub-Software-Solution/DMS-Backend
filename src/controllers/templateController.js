@@ -102,6 +102,9 @@ async function upload(req, res) {
     }
   } catch (err) {
     console.error('Template upload error:', err);
+    if (err && err.code === 'TEMPLATE_DUPLICATE') {
+      return res.status(400).json({ error: err.message || 'Duplicate template not allowed' });
+    }
     res.status(500).json({ error: 'Failed to upload template' });
   }
 }

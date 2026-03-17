@@ -90,7 +90,28 @@ async function getFileInfo(id) {
  */
 async function upload(file, fields, userId) {
   const department_id = fields.department_id || null;
-  const ext = path.extname(file.originalname) || '';
+  const originalName = (file.originalname || '').trim();
+
+  // Prevent duplicate template uploads for the same department (or global when department is null).
+  // Matching is case-insensitive on file_name and exact on department_id/null.
+  const dupCheck = await pool.query(
+    `SELECT id
+     FROM templates
+     WHERE LOWER(file_name) = LOWER($1)
+       AND (
+         (department_id IS NULL AND $2::uuid IS NULL)
+         OR department_id = $2::uuid
+       )
+     LIMIT 1`,
+    [originalName, department_id]
+  );
+  if (dupCheck.rows.length > 0) {
+    const err = new Error('A template with the same file name already exists for this department.');
+    err.code = 'TEMPLATE_DUPLICATE';
+    throw err;
+  }
+
+  const ext = path.extname(originalName) || '';
   const filename = `${uuidv4()}${ext}`;
   fileStorage.saveFile('templates', filename, file.buffer);
   const relativePath = path.join('templates', filename);
@@ -101,7 +122,7 @@ async function upload(file, fields, userId) {
       `INSERT INTO templates (file_name, file_path, file_size, department_id, status, uploaded_by)
        VALUES ($1, $2, $3, $4, 'draft', $5)
        RETURNING id, file_name, file_path, file_size, department_id, status, created_at, updated_at`,
-      [file.originalname, relativePath, file.buffer.length, department_id, userId]
+      [originalName, relativePath, file.buffer.length, department_id, userId]
     );
     row = q.rows[0];
   } finally {

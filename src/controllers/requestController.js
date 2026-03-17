@@ -194,6 +194,27 @@ async function update(req, res) {
           .catch((err) => console.error('Request status email error:', err));
       }
     }
+    const newSubmissionComments =
+      body.submission_comments !== undefined
+        ? body.submission_comments
+        : body.submissionComments;
+    if (
+      newSubmissionComments !== undefined &&
+      previous &&
+      previous.submissionComments !== newSubmissionComments &&
+      String(newSubmissionComments || '').trim()
+    ) {
+      await auditLogService.insert({
+        entity_type: 'request',
+        entity_id: req.params.id,
+        action: 'submission_remarks_added',
+        user_id: req.user.id,
+        details: {
+          requestId: result.requestId,
+          submissionComments: newSubmissionComments,
+        },
+      });
+    }
     if (
       emailService.isEmailConfigured() &&
       newAssigneeRaw &&

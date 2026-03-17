@@ -87,6 +87,19 @@ function buildHumanDetails(row) {
     return 'Request deleted.';
   }
 
+  if (action === 'submission_remarks_added') {
+    const comment =
+      detailsObj &&
+      (detailsObj.submissionComments ||
+        detailsObj.comment ||
+        detailsObj.remarks ||
+        detailsObj.reason);
+    if (comment && String(comment).trim()) {
+      return `Submission remarks: ${String(comment).trim()}`;
+    }
+    return 'Submission remarks added.';
+  }
+
   if (action === 'user_validated_for_review') {
     const username = detailsObj && (detailsObj.username || detailsObj.user || null);
     const email = detailsObj && (detailsObj.email || null);
@@ -160,6 +173,7 @@ function statusFromAction(normalizedAction) {
     case 'request_created':
     case 'page_changed':
     case 'request_deleted':
+    case 'submission_remarks_added':
     case 'status_changed':
     default:
       return 'completed';
